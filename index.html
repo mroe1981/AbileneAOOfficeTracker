@@ -299,12 +299,17 @@ async function setupBin(){
   const existingBin = document.getElementById('setupBinId').value.trim();
   const btn = document.getElementById('setupBtn');
   const err = document.getElementById('setupError');
+
   err.style.display='none';
 
-  if(!key){ showSetupError('Please paste your Master API Key.'); return; }
-  if(!key.startsWith('$2b$')){ showSetupError('Key should start with $2b$ — check you copied the Master Key, not the Access Key.'); return; }
+  // Only check that something was entered
+  if(!key){ 
+    showSetupError('Please paste your Master API Key.'); 
+    return; 
+  }
 
-  btn.disabled=true; btn.textContent='Connecting…';
+  btn.disabled=true;
+  btn.textContent='Connecting…';
 
   try {
     let binId = existingBin;
@@ -313,25 +318,52 @@ async function setupBin(){
       // Create a new bin
       const res = await fetch('https://api.jsonbin.io/v3/b', {
         method:'POST',
-        headers:{'Content-Type':'application/json','X-Master-Key':key,'X-Bin-Name':'OfficTracker','X-Collection-Name':'OfficeTracker'},
+        headers:{
+          'Content-Type':'application/json',
+          'X-Master-Key':key,
+          'X-Bin-Name':'OfficeTracker',
+          'X-Collection-Name':'OfficeTracker'
+        },
         body: JSON.stringify({entries:[]})
       });
-      if(!res.ok){ const t=await res.text(); showSetupError('Could not create bin: '+res.status+'. Check your API key.'); btn.disabled=false;btn.textContent='🔗 Connect & Start'; return; }
+
+      if(!res.ok){ 
+        showSetupError('Could not create bin. Check your API key.');
+        btn.disabled=false;
+        btn.textContent='🔗 Connect & Start';
+        return;
+      }
+
       const data = await res.json();
       binId = data.metadata.id;
+
     } else {
       // Validate existing bin
-      const res = await fetch('https://api.jsonbin.io/v3/b/'+binId+'/latest',{headers:{'X-Master-Key':key}});
-      if(!res.ok){ showSetupError('Could not read that Bin ID. Check both values and try again.'); btn.disabled=false;btn.textContent='🔗 Connect & Start'; return; }
+      const res = await fetch(
+        'https://api.jsonbin.io/v3/b/' + binId + '/latest',
+        { headers:{'X-Master-Key':key} }
+      );
+
+      if(!res.ok){ 
+        showSetupError('Could not read that Bin ID.');
+        btn.disabled=false;
+        btn.textContent='🔗 Connect & Start';
+        return;
+      }
     }
 
     localStorage.setItem('ooo_apikey', key);
-    localStorage.setItem('ooo_binid',  binId);
-    API_KEY = key; BIN_ID = binId;
+    localStorage.setItem('ooo_binid', binId);
+
+    API_KEY = key;
+    BIN_ID = binId;
+
     showApp();
+
   } catch(e){
-    showSetupError('Network error: '+e.message);
-    btn.disabled=false; btn.textContent='🔗 Connect & Start';
+    showSetupError('Network error: ' + e.message);
+    btn.disabled=false;
+    btn.textContent='🔗 Connect & Start';
   }
 }
 
