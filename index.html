@@ -81,6 +81,10 @@ button{
   <option>Remote</option>
 </select>
 
+<!-- ✅ Supervisor login -->
+<input id="supervisorCode" placeholder="Supervisor Code (optional)">
+<button onclick="setSupervisor()">Enable Supervisor</button>
+
 <button class="primary" onclick="addEntry()">Add Entry</button>
 </div>
 
@@ -103,14 +107,30 @@ button{
 
 <script>
 
-/* ✅ USER ID (per device) */
+/* ✅ USER ID */
 let userId = localStorage.getItem("userId");
 if(!userId){
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
 
-/* ✅ FIREBASE CONFIG */
+/* ✅ SUPERVISOR MODE */
+let isSupervisor = localStorage.getItem("isSupervisor") === "true";
+
+function setSupervisor(){
+  const code = document.getElementById("supervisorCode").value;
+
+  if(code === "0851"){   // 🔑 CHANGE THIS CODE IF YOU WANT
+    localStorage.setItem("isSupervisor", "true");
+    isSupervisor = true;
+    alert("Supervisor mode enabled");
+    render();
+  } else {
+    alert("Invalid code");
+  }
+}
+
+/* ✅ FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyByRJQCvWgb39z8kvuDYiJODiAM_qezU8A",
   authDomain: "abl-ao--solo-worker-tracker.firebaseapp.com",
@@ -180,10 +200,17 @@ function render(){
       html += "<b>"+(e.returnNote||"")+"</b>";
     } else {
 
-      if(e.userId === userId){
+      if(e.userId === userId || isSupervisor){
+
         html += "<button onclick=\"markReturned('"+item.id+"')\">Back</button> ";
         html += "<button onclick=\"markNotAlone('"+item.id+"')\">Not Alone</button> ";
         html += "<button onclick=\"markAloneOk('"+item.id+"')\">Alone OK</button>";
+
+        if(isSupervisor){
+          html += "<button onclick=\"resetAlert('"+item.id+"')\">Reset Alert</button> ";
+          html += "<button onclick=\"forceReturn('"+item.id+"')\">Force Return</button>";
+        }
+
       } else {
         html += "<i>Controlled by another user</i>";
       }
@@ -229,7 +256,7 @@ function addEntry(){
   alert("Saved ✅");
 }
 
-/* ✅ CHECK-IN TRACKING */
+/* ✅ CHECK-IN */
 function markAloneOk(id){
   const now = new Date().toISOString();
 
@@ -263,6 +290,20 @@ function markNotAlone(id){
   });
 }
 
+/* ✅ SUPERVISOR ACTIONS */
+function resetAlert(id){
+  entriesRef.doc(id).update({
+    alerted:false
+  });
+}
+
+function forceReturn(id){
+  entriesRef.doc(id).update({
+    returned:true,
+    returnNote:"Supervisor Override"
+  });
+}
+
 /* ✅ ALERT */
 setInterval(function(){
   entries.forEach(function(item){
@@ -279,7 +320,7 @@ setInterval(function(){
   });
 },60000);
 
-/* ✅ EXPORT WITH DATE RANGE */
+/* ✅ EXPORT */
 function exportCSV(){
 
   const start = document.getElementById("startDate").value;
@@ -292,7 +333,6 @@ function exportCSV(){
 
     const loggedDate = e.logged ? e.logged.split("T")[0] : "";
 
-    // ✅ FILTER BY DATE RANGE
     if(start && loggedDate < start) return;
     if(end && loggedDate > end) return;
 
@@ -312,7 +352,6 @@ function exportCSV(){
   a.click();
 }
 
-/* ✅ HELPER */
 function val(id){
   return document.getElementById(id).value.trim();
 }
