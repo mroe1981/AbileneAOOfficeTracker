@@ -70,7 +70,8 @@ button{
 <input id="name" placeholder="Name">
 <input id="dest" placeholder="Where are you going?">
 <input id="phone" placeholder="Phone">
-<input id="email" placeholder="Email">
+<input id="email" placeholder="Email (optional)">
+<input id="notes" placeholder="Notes (optional)">
 
 <select id="status">
   <option value="">Select Status</option>
@@ -89,29 +90,41 @@ button{
 </div>
 
 <div class="card">
+<h3>Export CSV (Date Range)</h3>
+
+<label>Start Date:</label>
+<input type="date" id="startDate">
+
+<label>End Date:</label>
+<input type="date" id="endDate">
+
 <button onclick="exportCSV()">Download CSV</button>
 </div>
 
 <script>
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+/* ✅ USER ID (per device) */
+let userId = localStorage.getItem("userId");
+if(!userId){
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+
+/* ✅ FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyByRJQCvWgb39z8kvuDYiJODiAM_qezU8A",
   authDomain: "abl-ao--solo-worker-tracker.firebaseapp.com",
-  projectId: "abl-ao--solo-worker-tracker",
-  storageBucket: "abl-ao--solo-worker-tracker.firebasestorage.app",
-  messagingSenderId: "949187929232",
-  appId: "1:949187929232:web:d5fc3f6e7537a4da3de415",
-  measurementId: "G-E4H3LZZRZ9"
+  projectId: "abl-ao--solo-worker-tracker"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.firestore();
 const entriesRef = db.collection("entries");
 
 let entries = [];
 
-/* REALTIME */
+/* ✅ REALTIME */
 entriesRef.onSnapshot(function(snapshot){
   entries = [];
   snapshot.forEach(function(doc){
@@ -120,14 +133,14 @@ entriesRef.onSnapshot(function(snapshot){
   render();
 });
 
-/* FILTER */
+/* ✅ FILTER */
 function isActive(e){
   const today = new Date().toISOString().split("T")[0];
-  const d = (e.logged || "").split("T")[0];
+  const d = (e.logged||"").split("T")[0];
   return d === today || !e.returned;
 }
 
-/* RENDER */
+/* ✅ RENDER */
 function render(){
   const list = document.getElementById("list");
   list.innerHTML = "";
@@ -144,7 +157,15 @@ function render(){
     html += "<b>"+e.name+"</b><br>";
     html += "Destination: "+e.dest+"<br>";
     html += "Phone: "+e.phone+"<br>";
-    html += "Email: "+e.email+"<br>";
+
+    if(e.email){
+      html += "Email: "+e.email+"<br>";
+    }
+
+    if(e.notes){
+      html += "Notes: "+e.notes+"<br>";
+    }
+
     html += "Last check-in: "+mins+" min ago<br>";
 
     if(e.checkins){
@@ -158,9 +179,15 @@ function render(){
     if(e.returned){
       html += "<b>"+(e.returnNote||"")+"</b>";
     } else {
-      html += "<button onclick=\"markReturned('"+item.id+"')\">Back</button> ";
-      html += "<button onclick=\"markNotAlone('"+item.id+"')\">Not Alone</button> ";
-      html += "<button onclick=\"markAloneOk('"+item.id+"')\">Alone OK</button>";
+
+      if(e.userId === userId){
+        html += "<button onclick=\"markReturned('"+item.id+"')\">Back</button> ";
+        html += "<button onclick=\"markNotAlone('"+item.id+"')\">Not Alone</button> ";
+        html += "<button onclick=\"markAloneOk('"+item.id+"')\">Alone OK</button>";
+      } else {
+        html += "<i>Controlled by another user</i>";
+      }
+
     }
 
     html += "</div>";
@@ -168,25 +195,33 @@ function render(){
   });
 }
 
-/* ADD ENTRY WITH HISTORY */
+/* ✅ ADD ENTRY */
 function addEntry(){
+
   const name = val("name");
   const dest = val("dest");
   const phone = val("phone");
   const email = val("email");
+  const notes = val("notes");
   const status = val("status");
 
-  if(!name || !dest || !phone || !email || !status){
-    return alert("Fill all fields");
+  if(!name || !dest || !phone || !status){
+    return alert("Fill required fields");
   }
 
   const now = new Date().toISOString();
 
   entriesRef.add({
-    name, dest, phone, email, status,
+    name,
+    dest,
+    phone,
+    email,
+    notes,
+    status,
+    userId: userId,
     logged: now,
     lastCheckIn: now,
-    checkins: [now],   // ✅ START HISTORY
+    checkins: [now],
     returned:false,
     alerted:false
   });
@@ -194,9 +229,8 @@ function addEntry(){
   alert("Saved ✅");
 }
 
-/* CHECK-IN TRACKING */
+/* ✅ CHECK-IN TRACKING */
 function markAloneOk(id){
-
   const now = new Date().toISOString();
 
   entriesRef.doc(id).get().then(function(doc){
@@ -214,7 +248,7 @@ function markAloneOk(id){
   });
 }
 
-/* ACTIONS */
+/* ✅ ACTIONS */
 function markReturned(id){
   entriesRef.doc(id).update({
     returned:true,
@@ -229,7 +263,7 @@ function markNotAlone(id){
   });
 }
 
-/* ALERT */
+/* ✅ ALERT */
 setInterval(function(){
   entries.forEach(function(item){
     const e=item.data;
@@ -245,19 +279,28 @@ setInterval(function(){
   });
 },60000);
 
-/* EXPORT WITH HISTORY + STATUS */
+/* ✅ EXPORT WITH DATE RANGE */
 function exportCSV(){
 
-  let csv = "Name,Destination,Phone,Email,Status,Check-In History\n";
+  const start = document.getElementById("startDate").value;
+  const end = document.getElementById("endDate").value;
+
+  let csv = "Name,Destination,Phone,Email,Status,Notes,Check-In History\n";
 
   entries.forEach(function(item){
     const e = item.data;
+
+    const loggedDate = e.logged ? e.logged.split("T")[0] : "";
+
+    // ✅ FILTER BY DATE RANGE
+    if(start && loggedDate < start) return;
+    if(end && loggedDate > end) return;
 
     const history = (e.checkins || [])
       .map(t => new Date(t).toLocaleString())
       .join(" | ");
 
-    csv += `"${e.name}","${e.dest}","${e.phone}","${e.email}","${e.status}","${history}"\n`;
+    csv += `"${e.name}","${e.dest}","${e.phone}","${e.email || ''}","${e.status}","${e.notes || ''}","${history}"\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -269,7 +312,7 @@ function exportCSV(){
   a.click();
 }
 
-/* HELPER */
+/* ✅ HELPER */
 function val(id){
   return document.getElementById(id).value.trim();
 }
@@ -278,4 +321,3 @@ function val(id){
 
 </body>
 </html>
-``
