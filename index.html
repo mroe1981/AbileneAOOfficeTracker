@@ -24,7 +24,7 @@ body{
   border:1px solid #333;
 }
 
-input, select{
+input{
   width:100%;
   padding:10px;
   margin-top:5px;
@@ -35,10 +35,10 @@ input, select{
 }
 
 button{
-  padding:10px;
+  padding:8px;
   border-radius:8px;
   border:none;
-  margin-top:10px;
+  margin-top:6px;
   cursor:pointer;
 }
 
@@ -48,15 +48,24 @@ button{
 }
 
 .entry{
-  background:#191d27;
-  border:1px solid #333;
-  padding:10px;
+  padding:12px;
   border-radius:10px;
   margin-bottom:10px;
 }
 
+.safe{
+  border:2px solid #2ecc71;
+  background:#13291c;
+}
+
+.warning{
+  border:2px solid #f1c40f;
+  background:#2c260e;
+}
+
 .overdue{
   border:2px solid red;
+  background:#2a1515;
 }
 </style>
 
@@ -73,16 +82,7 @@ button{
 <input id="email" placeholder="Email (optional)">
 <input id="notes" placeholder="Notes (optional)">
 
-<select id="status">
-  <option value="">Select Status</option>
-  <option>Out of Office</option>
-  <option>Meeting</option>
-  <option>Lunch</option>
-  <option>Remote</option>
-</select>
-
-<!-- ✅ Supervisor login -->
-<input id="supervisorCode" placeholder="Supervisor Code (optional)">
+<input id="supervisorCode" placeholder="Supervisor Code">
 <button onclick="setSupervisor()">Enable Supervisor</button>
 
 <button class="primary" onclick="addEntry()">Add Entry</button>
@@ -107,30 +107,30 @@ button{
 
 <script>
 
-/* ✅ USER ID */
+/* USER ID */
 let userId = localStorage.getItem("userId");
 if(!userId){
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
 
-/* ✅ SUPERVISOR MODE */
+/* SUPERVISOR */
 let isSupervisor = localStorage.getItem("isSupervisor") === "true";
 
 function setSupervisor(){
   const code = document.getElementById("supervisorCode").value;
 
-  if(code === "0851"){   // 🔑 CHANGE THIS CODE IF YOU WANT
+  if(code === "0851"){
     localStorage.setItem("isSupervisor", "true");
     isSupervisor = true;
-    alert("Supervisor mode enabled");
+    alert("Supervisor enabled");
     render();
   } else {
     alert("Invalid code");
   }
 }
 
-/* ✅ FIREBASE */
+/* FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyByRJQCvWgb39z8kvuDYiJODiAM_qezU8A",
   authDomain: "abl-ao--solo-worker-tracker.firebaseapp.com",
@@ -144,7 +144,6 @@ const entriesRef = db.collection("entries");
 
 let entries = [];
 
-/* ✅ REALTIME */
 entriesRef.onSnapshot(function(snapshot){
   entries = [];
   snapshot.forEach(function(doc){
@@ -153,14 +152,14 @@ entriesRef.onSnapshot(function(snapshot){
   render();
 });
 
-/* ✅ FILTER */
+/* FILTER */
 function isActive(e){
   const today = new Date().toISOString().split("T")[0];
   const d = (e.logged||"").split("T")[0];
   return d === today || !e.returned;
 }
 
-/* ✅ RENDER */
+/* RENDER */
 function render(){
   const list = document.getElementById("list");
   list.innerHTML = "";
@@ -170,11 +169,21 @@ function render(){
 
     const last = new Date(e.lastCheckIn || e.logged);
     const mins = Math.floor((Date.now()-last)/60000);
-    const overdue = !e.returned && mins > 120;
 
-    let html = "<div class='entry "+(overdue?"overdue":"")+"'>";
+    let statusClass = "safe";
+    let statusText = "SAFE";
 
-    html += "<b>"+e.name+"</b><br>";
+    if(mins > 120){
+      statusClass = "overdue";
+      statusText = "OVERDUE";
+    } else if(mins > 90){
+      statusClass = "warning";
+      statusText = "CHECK SOON";
+    }
+
+    let html = "<div class='entry "+statusClass+"'>";
+
+    html += "<b>"+e.name+"</b> ("+statusText+")<br>";
     html += "Destination: "+e.dest+"<br>";
     html += "Phone: "+e.phone+"<br>";
 
@@ -192,22 +201,18 @@ function render(){
       html += "Check-ins: "+e.checkins.length+"<br>";
     }
 
-    if(overdue){
-      html += "<span style='color:red'>OVERDUE</span><br>";
-    }
-
     if(e.returned){
       html += "<b>"+(e.returnNote||"")+"</b>";
     } else {
 
       if(e.userId === userId || isSupervisor){
 
-        html += "<button onclick=\"markReturned('"+item.id+"')\">Back</button> ";
-        html += "<button onclick=\"markNotAlone('"+item.id+"')\">Not Alone</button> ";
-        html += "<button onclick=\"markAloneOk('"+item.id+"')\">Alone OK</button>";
+        html += "<button onclick=\"markReturned('"+item.id+"')\">Back</button>";
+        html += "<button onclick=\"markNotAlone('"+item.id+"')\">Not Alone</button>";
+        html += "<button onclick=\"markAloneOk('"+item.id+"')\">Check-In</button>";
 
         if(isSupervisor){
-          html += "<button onclick=\"resetAlert('"+item.id+"')\">Reset Alert</button> ";
+          html += "<button onclick=\"resetAlert('"+item.id+"')\">Reset Alert</button>";
           html += "<button onclick=\"forceReturn('"+item.id+"')\">Force Return</button>";
         }
 
@@ -222,7 +227,7 @@ function render(){
   });
 }
 
-/* ✅ ADD ENTRY */
+/* ADD ENTRY */
 function addEntry(){
 
   const name = val("name");
@@ -230,9 +235,8 @@ function addEntry(){
   const phone = val("phone");
   const email = val("email");
   const notes = val("notes");
-  const status = val("status");
 
-  if(!name || !dest || !phone || !status){
+  if(!name || !dest || !phone){
     return alert("Fill required fields");
   }
 
@@ -244,7 +248,6 @@ function addEntry(){
     phone,
     email,
     notes,
-    status,
     userId: userId,
     logged: now,
     lastCheckIn: now,
@@ -253,19 +256,17 @@ function addEntry(){
     alerted:false
   });
 
-  alert("Saved ✅");
+  alert("Saved");
 }
 
-/* ✅ CHECK-IN */
+/* CHECK-IN */
 function markAloneOk(id){
   const now = new Date().toISOString();
 
   entriesRef.doc(id).get().then(function(doc){
     if(!doc.exists) return;
 
-    const data = doc.data();
-    const history = data.checkins || [];
-
+    const history = doc.data().checkins || [];
     history.push(now);
 
     entriesRef.doc(id).update({
@@ -275,7 +276,7 @@ function markAloneOk(id){
   });
 }
 
-/* ✅ ACTIONS */
+/* ACTIONS */
 function markReturned(id){
   entriesRef.doc(id).update({
     returned:true,
@@ -290,11 +291,9 @@ function markNotAlone(id){
   });
 }
 
-/* ✅ SUPERVISOR ACTIONS */
+/* SUPERVISOR */
 function resetAlert(id){
-  entriesRef.doc(id).update({
-    alerted:false
-  });
+  entriesRef.doc(id).update({alerted:false});
 }
 
 function forceReturn(id){
@@ -304,7 +303,7 @@ function forceReturn(id){
   });
 }
 
-/* ✅ ALERT */
+/* ALERT */
 setInterval(function(){
   entries.forEach(function(item){
     const e=item.data;
@@ -320,13 +319,13 @@ setInterval(function(){
   });
 },60000);
 
-/* ✅ EXPORT */
+/* EXPORT */
 function exportCSV(){
 
   const start = document.getElementById("startDate").value;
   const end = document.getElementById("endDate").value;
 
-  let csv = "Name,Destination,Phone,Email,Status,Notes,Check-In History\n";
+  let csv = "Name,Destination,Phone,Email,Notes,Check-In History\n";
 
   entries.forEach(function(item){
     const e = item.data;
@@ -340,7 +339,7 @@ function exportCSV(){
       .map(t => new Date(t).toLocaleString())
       .join(" | ");
 
-    csv += `"${e.name}","${e.dest}","${e.phone}","${e.email || ''}","${e.status}","${e.notes || ''}","${history}"\n`;
+    csv += `"${e.name}","${e.dest}","${e.phone}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
