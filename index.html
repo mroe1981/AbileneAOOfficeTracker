@@ -171,23 +171,36 @@ function render(){
   entries.filter(i=>isActive(i.data)).forEach(function(item){
     const e = item.data;
 
-    const last = new Date(e.lastCheckIn || e.logged);
-    const mins = Math.floor((Date.now()-last)/60000);
+   const last = new Date(e.lastCheckIn || e.logged);
+const mins = Math.floor((Date.now()-last)/60000);
 
-    let statusClass = "safe";
-    let statusText = "SAFE";
+let statusClass = "";
+let statusText = "";
 
-    if(mins > 120){
-      statusClass = "overdue";
-      statusText = "OVERDUE";
-    } else if(mins > 90){
-      statusClass = "warning";
-      statusText = "CHECK SOON";
+if(!e.returned){   // ✅ ONLY apply safety logic if still out
+
+  statusClass = "safe";
+  statusText = "SAFE";
+
+  if(mins > 120){
+    statusClass = "overdue";
+    statusText = "OVERDUE";
+  } else if(mins > 90){
+    statusClass = "warning";
+    statusText = "CHECK SOON";
+  }
+
     }
 
     let html = "<div class='entry "+statusClass+"'>";
 
-    html += "<b>"+e.name+"</b> ("+statusText+")<br>";
+    html += "<b>"+e.name+"</b>";
+
+if(!e.returned){
+  html += "<span style='color:#4caf50'>✔ Completed</span><br>";
+}
+
+html += "<br>";
     html += "Destination: "+e.dest+"<br>";
     html += "Phone: "+e.phone+"<br>";
 
