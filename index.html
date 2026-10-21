@@ -1,430 +1,841 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>B.E.A.C.O.N.</title>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #0f1117;
-  color: #eef0f8;
-  max-width: 500px;
-  margin: auto;
-  padding: 10px;
-}
-.card {
-  background: #191d27;
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 10px;
-  border: 1px solid #333;
-}
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  background: #222;
-  border: 1px solid #444;
-  color: white;
-  border-radius: 8px;
-  box-sizing: border-box;
-}
-select option {
-  background: #222;
-  color: white;
-}
-button {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  margin-top: 6px;
-  cursor: pointer;
-}
-.primary {
-  background: #5b8df6;
-  color: white;
-  width: 100%;
-  padding: 12px;
-  font-weight: bold;
-}
-.entry {
-  padding: 12px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-}
-.safe {
-  border: 2px solid #2ecc71;
-  background: #13291c;
-}
-.warning {
-  border: 2px solid #f1c40f;
-  background: #2c260e;
-}
-.overdue {
-  border: 2px solid red;
-  background: #2a1515;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B.E.A.C.O.N. | Lone Worker Monitor</title>
+
+  <!-- Firebase Compat Libraries -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #0b0e14;
+      --bg-card: #151922;
+      --bg-card-subtle: #1c212d;
+      --bg-input: #10141d;
+      --border-color: #272f3f;
+      --border-focus: #3b82f6;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      
+      --color-safe: #10b981;
+      --color-safe-bg: rgba(16, 185, 129, 0.12);
+      --color-warning: #f59e0b;
+      --color-warning-bg: rgba(245, 158, 11, 0.12);
+      --color-overdue: #ef4444;
+      --color-overdue-bg: rgba(239, 68, 68, 0.16);
+      
+      --color-primary: #2563eb;
+      --color-primary-hover: #1d4ed8;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 16px 12px 60px;
+      max-width: 580px;
+      margin: 0 auto;
+    }
+
+    /* Top Brand & Header */
+    .header-card {
+      background: linear-gradient(180deg, #1b212e 0%, var(--bg-card) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--color-safe);
+      box-shadow: 0 0 10px var(--color-safe);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* Metric Summary Counter */
+    .metric-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .metric-pill {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .metric-pill .metric-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .metric-pill .metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    /* Main Container Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-heading {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 10px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-size: 14px;
+      border-radius: var(--radius-md);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    input::placeholder {
+      color: var(--text-subtle);
+    }
+
+    /* Buttons */
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--color-primary);
+      color: #ffffff;
+      width: 100%;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--color-primary-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: #272f3f;
+    }
+
+    .btn-checkin {
+      background: #0284c7;
+      color: #ffffff;
+    }
+
+    .btn-checkin:hover {
+      background: #0369a1;
+    }
+
+    .btn-returned {
+      background: #10b981;
+      color: #ffffff;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    /* Supervisor Access Drawer */
+    .supervisor-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Worker Entry Cards */
+    .entry-card {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 12px;
+      position: relative;
+      border-left: 5px solid var(--border-color);
+      transition: transform 0.15s ease;
+    }
+
+    .entry-card.safe {
+      border-left-color: var(--color-safe);
+    }
+
+    .entry-card.warning {
+      border-left-color: var(--color-warning);
+      background: rgba(245, 158, 11, 0.05);
+    }
+
+    .entry-card.overdue {
+      border-left-color: var(--color-overdue);
+      background: rgba(239, 68, 68, 0.08);
+      animation: alertFlash 3s infinite;
+    }
+
+    @keyframes alertFlash {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+      50% { box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.35); }
+    }
+
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .entry-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-badge.safe { background: var(--color-safe-bg); color: var(--color-safe); }
+    .status-badge.warning { background: var(--color-warning-bg); color: var(--color-warning); }
+    .status-badge.overdue { background: var(--color-overdue-bg); color: var(--color-overdue); }
+    .status-badge.completed { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+
+    .entry-meta {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .meta-row b {
+      color: var(--text-main);
+      font-size: 12px;
+      min-width: 80px;
+    }
+
+    .entry-notes {
+      font-size: 12px;
+      background: var(--bg-main);
+      border-left: 2px solid var(--border-color);
+      padding: 6px 8px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .btn-group button {
+      flex: 1;
+      min-width: 90px;
+      padding: 8px 10px;
+    }
+
+    .supervisor-controls {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border-color);
+    }
+
+    .supervisor-controls button {
+      flex: 1;
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 28px 12px;
+      color: var(--text-subtle);
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>B.E.A.C.O.N.</h2>
-  <div style="font-size:12px; color:#aaa; margin-bottom: 10px;">
-    Backup Employee Activity Check-In & Observation Network
+  <!-- Brand & Operations Ticker Header -->
+  <div class="header-card">
+    <div class="brand-title">
+      <h1>
+        <span class="pulse-dot"></span>
+        B.E.A.C.O.N.
+      </h1>
+      <span style="font-size: 11px; background: var(--bg-card-subtle); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); color: var(--text-muted);">
+        v2.4 Live
+      </span>
+    </div>
+    <div class="brand-subtitle">
+      Backup Employee Activity Check-In & Observation Network
+    </div>
+
+    <!-- Quick Metric Cards -->
+    <div class="metric-bar">
+      <div class="metric-pill">
+        <div class="metric-val" id="metricActive">0</div>
+        <div class="metric-label">In Field</div>
+      </div>
+      <div class="metric-pill">
+        <div class="metric-val" id="metricSafe" style="color: var(--color-safe);">0</div>
+        <div class="metric-label">Safe</div>
+      </div>
+      <div class="metric-pill">
+        <div class="metric-val" id="metricOverdue" style="color: var(--color-overdue);">0</div>
+        <div class="metric-label">Overdue</div>
+      </div>
+    </div>
   </div>
 
-  <input id="name" placeholder="Name *">
-  <input id="dest" placeholder="Where are you going? *">
-  <input id="phone" placeholder="Phone (optional)">
-  
-  <!-- Single Clean Supervisor Dropdown Selection -->
-  <label style="font-size:12px; color:#aaa; margin-top:8px; display:block;">Designated Supervisor:</label>
-  <select id="supervisorSelect"></select>
+  <!-- New Check-In Registration Card -->
+  <div class="card">
+    <div class="card-heading">
+      <span>Field Departure Sign-Out</span>
+      <span style="font-size: 11px; color: var(--text-muted); font-weight: 400;">* Required</span>
+    </div>
 
-  <input id="email" placeholder="Worker Email (optional)">
-  <input id="notes" placeholder="Notes (optional)">
-  
-  <input id="supervisorCode" type="password" placeholder="Supervisor Code">
-  <button onclick="setSupervisor()">Enable Supervisor</button>
-  <button class="primary" onclick="addEntry()">Add Entry</button>
-</div>
+    <div class="form-group">
+      <label class="form-label" for="name">Worker Name *</label>
+      <input id="name" placeholder="First and last name">
+    </div>
 
-<div class="card">
-  <h3>Active Entries</h3>
-  <div id="list"></div>
-</div>
+    <div class="form-group">
+      <label class="form-label" for="dest">Destination & Worksite *</label>
+      <input id="dest" placeholder="e.g., US-290 Bridge Inspection">
+    </div>
 
-<div class="card">
-  <h3>Export CSV (Date Range)</h3>
-  <label>Start Date:</label>
-  <input type="date" id="startDate">
-  <label>End Date:</label>
-  <input type="date" id="endDate">
-  <button onclick="exportCSV()">Download CSV</button>
-</div>
+    <div class="form-group">
+      <label class="form-label" for="supervisorSelect">Designated Supervisor *</label>
+      <select id="supervisorSelect"></select>
+    </div>
 
-<script>
-/* 👥 SUPERVISORS DATABASE */
-const SUPERVISORS = [
-  { 
-    name: "Mike Roetheli", 
-    email: "michael.roetheli@txdot.gov", 
-    phone: "3252687662", 
-    gateway: "@txt.att.net" // AT&T SMS Gateway 
-  }
-];
+    <div class="form-group">
+      <label class="form-label" for="phone">Worker Phone (Optional)</label>
+      <input id="phone" type="tel" placeholder="e.g., 325-555-0199">
+    </div>
 
-/* USER ID */
-let userId = localStorage.getItem("userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("userId", userId);
-}
+    <div class="form-group">
+      <label class="form-label" for="email">Worker Email (Optional)</label>
+      <input id="email" type="email" placeholder="name@txdot.gov">
+    </div>
 
-/* POPULATE SUPERVISORS DROPDOWN ON PAGE LOAD */
-const selectEl = document.getElementById("supervisorSelect");
-SUPERVISORS.forEach((sup, index) => {
-  const option = document.createElement("option");
-  option.value = index; // Store index for array lookup later
-  option.textContent = sup.name;
-  selectEl.appendChild(option);
-});
+    <div class="form-group">
+      <label class="form-label" for="notes">Safety Notes / Hazards (Optional)</label>
+      <input id="notes" placeholder="e.g., Mile marker 142, lane closure active">
+    </div>
 
-/* SUPERVISOR */
-let isSupervisor = localStorage.getItem("isSupervisor") === "true";
-function setSupervisor() {
-  const code = document.getElementById("supervisorCode").value;
-  if (code === "0851") {
-    localStorage.setItem("isSupervisor", "true");
-    isSupervisor = true;
-    alert("Supervisor mode enabled");
-    render();
-  } else {
-    alert("Invalid code");
-  }
-}
+    <button class="btn-primary" onclick="addEntry()" style="margin-top: 6px;">
+      Log Departure & Begin 2h Monitor
+    </button>
 
-/* FIREBASE */
-const firebaseConfig = {
-  apiKey: "AIzaSyByRJQCvWgb39z8kvuDYiJODiAM_qezU8A",
-  authDomain: "abl-ao--solo-worker-tracker.firebaseapp.com",
-  projectId: "abl-ao--solo-worker-tracker"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const entriesRef = db.collection("entries");
-let entries = [];
+    <!-- Supervisor Passcode Authorization Drawer -->
+    <div class="supervisor-bar">
+      <input id="supervisorCode" type="password" placeholder="Supervisor Passcode" style="padding: 8px 10px; font-size: 13px;">
+      <button class="btn-secondary" onclick="setSupervisor()" style="white-space: nowrap;">
+        Unlock Admin
+      </button>
+    </div>
+  </div>
 
-entriesRef.onSnapshot(function(snapshot) {
-  entries = [];
-  snapshot.forEach(function(doc) {
-    entries.push({ id: doc.id, data: doc.data() });
-  });
-  render();
-});
+  <!-- Active Personnel List Card -->
+  <div class="card">
+    <div class="card-heading">
+      <span>Active Field Personnel</span>
+      <span style="font-size: 12px; color: var(--text-muted); font-weight: 400;" id="activeCountBadge">0 Active</span>
+    </div>
+    <div id="list">
+      <div class="empty-state">No workers currently checked out in the field.</div>
+    </div>
+  </div>
 
-/* FILTER */
-function isActive(e) {
-  const today = new Date().toISOString().split("T")[0];
-  const d = (e.logged || "").split("T")[0];
-  return d === today || !e.returned;
-}
+  <!-- CSV Data Export Card -->
+  <div class="card">
+    <div class="card-heading">Shift Report Export</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+      <div>
+        <label class="form-label" for="startDate">From</label>
+        <input type="date" id="startDate">
+      </div>
+      <div>
+        <label class="form-label" for="endDate">To</label>
+        <input type="date" id="endDate">
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="exportCSV()" style="width: 100%;">
+      Download Historical Log (.CSV)
+    </button>
+  </div>
 
-/* RENDER */
-function render() {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-
-  entries.filter(i => isActive(i.data)).forEach(function(item) {
-    const e = item.data;
-    const last = new Date(e.lastCheckIn || e.logged);
-    const mins = Math.floor((Date.now() - last) / 60000);
-
-    let statusClass = "safe";
-    let statusText = "SAFE";
-
-    if (!e.returned) {
-      if (mins > 120) {
-        statusClass = "overdue";
-        statusText = "OVERDUE (ALERT SENT)";
-      } else if (mins > 90) {
-        statusClass = "warning";
-        statusText = "CHECK SOON";
+  <script>
+    /* 👥 SUPERVISORS ROSTER (Add future supervisors here) */
+    const SUPERVISORS = [
+      { 
+        name: "Mike Roetheli", 
+        email: "michael.roetheli@txdot.gov", 
+        phone: "3252687662", 
+        gateway: "@txt.att.net"
       }
+    ];
+
+    /* 🌐 CLOUD RUN BACKEND URL (Handles whitelisted Brevo emails & Telegram alerts) */
+    const CLOUD_FUNCTION_URL = "https://on-worker-overdue-949187929232.us-south1.run.app/";
+
+    /* USER & DEVICE ID */
+    let userId = localStorage.getItem("userId");
+    if (!userId) {
+      userId = crypto.randomUUID();
+      localStorage.setItem("userId", userId);
     }
 
-    let html = "<div class='entry " + statusClass + "'>";
-    html += "<b>" + e.name + "</b>";
+    /* POPULATE SUPERVISORS DROPDOWN */
+    const selectEl = document.getElementById("supervisorSelect");
+    SUPERVISORS.forEach((sup, index) => {
+      const option = document.createElement("option");
+      option.value = index;
+      option.textContent = `${sup.name} (${sup.email})`;
+      selectEl.appendChild(option);
+    });
 
-    // Show "Completed" only if returned/overridden; show "Checked In" if they have performed a check-in
-    if (e.returned) {
-      html += " — <span style='color:#4caf50; font-weight:bold;'>✔ Completed (" + (e.returnNote || "Safe") + ")</span><br>";
-    } else {
-      html += " — <span style='font-size:12px; font-weight:bold;'>" + statusText + "</span>";
-      if (e.checkins && e.checkins.length > 1) {
-        html += " <span style='color:#5b8df6;'>• Checked In</span>";
-      }
-      html += "<br>";
-    }
-
-    html += "Destination: " + e.dest + "<br>";
-    if (e.phone) {
-      html += "Phone: " + e.phone + "<br>";
-    }
-    if (e.supervisorName) {
-      html += "Supervisor: " + e.supervisorName + "<br>";
-    }
-    if (e.email) {
-      html += "Email: " + e.email + "<br>";
-    }
-    if (e.notes) {
-      html += "Notes: " + e.notes + "<br>";
-    }
-    html += "Last check-in: " + mins + " min ago<br>";
-    if (e.checkins) {
-      html += "Total Check-ins: " + e.checkins.length + "<br>";
-    }
-
-    if (!e.returned) {
-      if (e.userId === userId || isSupervisor) {
-        html += "<button onclick=\"markReturned('" + item.id + "')\">Back</button> ";
-        html += "<button onclick=\"markNotAlone('" + item.id + "')\">Not Alone</button> ";
-        html += "<button onclick=\"markAloneOk('" + item.id + "')\">Check-In</button> ";
-        if (isSupervisor) {
-          html += "<button onclick=\"resetAlert('" + item.id + "')\">Reset Alert</button> ";
-          html += "<button onclick=\"forceReturn('" + item.id + "')\">Force Return</button> ";
-        }
+    /* SUPERVISOR PRIVILEGES */
+    let isSupervisor = localStorage.getItem("isSupervisor") === "true";
+    function setSupervisor() {
+      const code = document.getElementById("supervisorCode").value.trim();
+      if (code === "0851") {
+        localStorage.setItem("isSupervisor", "true");
+        isSupervisor = true;
+        alert("Supervisor mode unlocked.");
+        render();
       } else {
-        html += "<i>Controlled by another device</i>";
+        alert("Invalid passcode.");
       }
     }
 
-    html += "</div>";
-    list.innerHTML += html;
-  });
-}
+    /* FIREBASE INITIALIZATION */
+    const firebaseConfig = {
+      apiKey: "AIzaSyByRJQCvWgb39z8kvuDYiJODiAM_qezU8A",
+      authDomain: "abl-ao--solo-worker-tracker.firebaseapp.com",
+      projectId: "abl-ao--solo-worker-tracker"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const entriesRef = db.collection("entries");
+    let entries = [];
 
-/* ADD ENTRY */
-function addEntry() {
-  const name = val("name");
-  const dest = val("dest");
-  const phone = val("phone");
-  const email = val("email");
-  const notes = val("notes");
-
-  // Retrieve selected supervisor object from the stored SUPERVISORS array
-  const supervisorIndex = document.getElementById("supervisorSelect").value;
-  const selectedSupervisor = SUPERVISORS[supervisorIndex];
-
-  if (!name || !dest || !selectedSupervisor) {
-    return alert("Please fill in Name, Destination, and select a Supervisor.");
-  }
-
-  // Construct SMS Gateway Address on the fly
-  const supervisorSmsGateway = selectedSupervisor.phone + selectedSupervisor.gateway;
-
-  const now = new Date().toISOString();
-  entriesRef.add({
-    name,
-    dest,
-    phone,
-    supervisorName: selectedSupervisor.name,
-    supervisorEmail: selectedSupervisor.email,
-    supervisorSmsGateway: supervisorSmsGateway,
-    email,
-    notes,
-    userId: userId,
-    logged: now,
-    lastCheckIn: now,
-    checkins: [now],
-    returned: false,
-    alerted: false
-  });
-  alert("Entry saved and monitoring started!");
-
-  // Clear entry input fields
-  document.getElementById("name").value = "";
-  document.getElementById("dest").value = "";
-  document.getElementById("phone").value = "";
-  document.getElementById("email").value = "";
-  document.getElementById("notes").value = "";
-}
-
-/* CHECK-IN */
-function markAloneOk(id) {
-  const now = new Date().toISOString();
-  entriesRef.doc(id).get().then(function(doc) {
-    if (!doc.exists) return;
-    const history = doc.data().checkins || [];
-    history.push(now);
-    entriesRef.doc(id).update({
-      lastCheckIn: now,
-      checkins: history,
-      alerted: false // Reset alert flag upon successful check-in
+    entriesRef.onSnapshot(function(snapshot) {
+      entries = [];
+      snapshot.forEach(function(doc) {
+        entries.push({ id: doc.id, data: doc.data() });
+      });
+      render();
     });
-  });
-}
 
-/* ACTIONS */
-function markReturned(id) {
-  entriesRef.doc(id).update({
-    returned: true,
-    returnNote: "Back"
-  });
-}
+    /* ACTIVE ENTRIES FILTER */
+    function isActive(e) {
+      const today = new Date().toISOString().split("T")[0];
+      const d = (e.logged || "").split("T")[0];
+      return d === today || !e.returned;
+    }
 
-function markNotAlone(id) {
-  entriesRef.doc(id).update({
-    returned: true,
-    returnNote: "Not Alone"
-  });
-}
+    /* RENDER DASHBOARD */
+    function render() {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
 
-/* SUPERVISOR */
-function resetAlert(id) {
-  entriesRef.doc(id).update({ alerted: false });
-}
+      const activeEntries = entries.filter(i => isActive(i.data));
+      
+      // Update Top Metrics
+      let safeCount = 0;
+      let overdueCount = 0;
+      let inFieldCount = 0;
 
-function forceReturn(id) {
-  entriesRef.doc(id).update({
-    returned: true,
-    returnNote: "Supervisor Override"
-  });
-}
+      activeEntries.forEach(item => {
+        if (!item.data.returned) {
+          inFieldCount++;
+          const last = new Date(item.data.lastCheckIn || item.data.logged);
+          const mins = Math.floor((Date.now() - last) / 60000);
+          if (mins > 120) overdueCount++;
+          else safeCount++;
+        }
+      });
 
-/* 📬 DIRECT CALL TO YOUR GOOGLE CLOUD FUNCTION */
-const CLOUD_FUNCTION_URL = "https://on-worker-overdue-949187929232.us-south1.run.app/";
+      document.getElementById("metricActive").innerText = inFieldCount;
+      document.getElementById("metricSafe").innerText = safeCount;
+      document.getElementById("metricOverdue").innerText = overdueCount;
+      document.getElementById("activeCountBadge").innerText = `${inFieldCount} In Field`;
 
-async function sendBrevoAlert(worker) {
-  try {
-    const response = await fetch(CLOUD_FUNCTION_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        value: {
-          fields: {
-            name: { stringValue: worker.name },
-            dest: { stringValue: worker.dest },
-            phone: { stringValue: worker.phone || "Not Provided" },
-            supervisorEmail: { stringValue: worker.supervisorEmail },
-            alerted: { booleanValue: true }
-          }
-        },
-        oldValue: {
-          fields: {
-            alerted: { booleanValue: false }
+      if (activeEntries.length === 0) {
+        list.innerHTML = '<div class="empty-state">No workers currently checked out in the field.</div>';
+        return;
+      }
+
+      activeEntries.forEach(function(item) {
+        const e = item.data;
+        const last = new Date(e.lastCheckIn || e.logged);
+        const mins = Math.floor((Date.now() - last) / 60000);
+
+        let statusClass = "safe";
+        let statusText = "SAFE";
+
+        if (!e.returned) {
+          if (mins > 120) {
+            statusClass = "overdue";
+            statusText = "OVERDUE (ALERT SENT)";
+          } else if (mins > 90) {
+            statusClass = "warning";
+            statusText = "CHECK SOON";
           }
         }
-      })
-    });
 
-    if (response.ok) {
-      console.log("✅ Cloud Function triggered successfully!");
-    } else {
-      console.error("Cloud function error:", await response.text());
+        let html = `<div class="entry-card ${statusClass}">`;
+        
+        // Header
+        html += `<div class="entry-header">`;
+        html += `  <span class="entry-name">${e.name}</span>`;
+        if (e.returned) {
+          html += `  <span class="status-badge completed">✔ Completed (${e.returnNote || "Safe"})</span>`;
+        } else {
+          html += `  <span class="status-badge ${statusClass}">${statusText}</span>`;
+        }
+        html += `</div>`;
+
+        // Metadata grid
+        html += `<div class="entry-meta">`;
+        html += `  <div class="meta-row"><b>Destination:</b> <span>${e.dest}</span></div>`;
+        if (e.phone) {
+          html += `  <div class="meta-row"><b>Phone:</b> <a href="tel:${e.phone}" style="color:#60a5fa; text-decoration:none;">${e.phone}</a></div>`;
+        }
+        if (e.supervisorName) {
+          html += `  <div class="meta-row"><b>Supervisor:</b> <span>${e.supervisorName}</span></div>`;
+        }
+        html += `  <div class="meta-row"><b>Last Seen:</b> <span>${mins} min ago</span></div>`;
+        if (e.checkins) {
+          html += `  <div class="meta-row"><b>Check-Ins:</b> <span>${e.checkins.length} total</span></div>`;
+        }
+        html += `</div>`;
+
+        // Notes
+        if (e.notes) {
+          html += `<div class="entry-notes">"${e.notes}"</div>`;
+        }
+
+        // Action Buttons
+        if (!e.returned) {
+          if (e.userId === userId || isSupervisor) {
+            html += `<div class="btn-group">`;
+            html += `  <button class="btn-checkin" onclick="markAloneOk('${item.id}')">⏱ Check-In</button>`;
+            html += `  <button class="btn-returned" onclick="markReturned('${item.id}')">✔ Back Safe</button>`;
+            html += `  <button class="btn-secondary" onclick="markNotAlone('${item.id}')">👥 Not Alone</button>`;
+            html += `</div>`;
+
+            if (isSupervisor) {
+              html += `<div class="supervisor-controls">`;
+              html += `  <button class="btn-secondary" onclick="resetAlert('${item.id}')">🔄 Reset Alert</button>`;
+              html += `  <button class="btn-danger" onclick="forceReturn('${item.id}')">⛔ Force Return</button>`;
+              html += `</div>`;
+            }
+          } else {
+            html += `<div style="font-size: 11px; color: var(--text-subtle); margin-top: 8px;">Controlled by another device</div>`;
+          }
+        }
+
+        html += `</div>`;
+        list.innerHTML += html;
+      });
     }
-  } catch (error) {
-    console.error("Networking error reaching Cloud Function:", error);
-  }
-}
 
-/* 60-SECOND BACKGROUND CHECK */
-setInterval(function() {
-  entries.forEach(function(item) {
-    const e = item.data;
-    if (e.returned) return;
+    /* ADD ENTRY */
+    function addEntry() {
+      const name = val("name");
+      const dest = val("dest");
+      const phone = val("phone");
+      const email = val("email");
+      const notes = val("notes");
 
-    const last = new Date(e.lastCheckIn || e.logged);
-    const mins = (Date.now() - last) / 60000;
+      const supervisorIndex = document.getElementById("supervisorSelect").value;
+      const selectedSupervisor = SUPERVISORS[supervisorIndex];
 
-    // Overdue condition (> 120 minutes and hasn't alerted yet)
-    if (mins > 120 && !e.alerted) {
-      // 1. Mark as alerted in Firestore immediately so other tabs don't fire duplicates
-      entriesRef.doc(item.id).update({ alerted: true });
-      
-      // 2. Dispatch Brevo Alerts (both Email & SMS via Cloud Function)
-      sendBrevoAlert(e);
-      
-      // 3. Screen alert
-      alert("🚨 WARNING: " + e.name + " is overdue! Automated supervisor email and text alerts dispatched.");
+      if (!name || !dest || !selectedSupervisor) {
+        return alert("Please enter Name, Destination, and select a Supervisor.");
+      }
+
+      const supervisorSmsGateway = selectedSupervisor.phone + selectedSupervisor.gateway;
+      const now = new Date().toISOString();
+
+      entriesRef.add({
+        name,
+        dest,
+        phone,
+        supervisorName: selectedSupervisor.name,
+        supervisorEmail: selectedSupervisor.email,
+        supervisorSmsGateway: supervisorSmsGateway,
+        email,
+        notes,
+        userId: userId,
+        logged: now,
+        lastCheckIn: now,
+        checkins: [now],
+        returned: false,
+        alerted: false
+      });
+
+      alert("Shift started. Monitoring active.");
+
+      document.getElementById("name").value = "";
+      document.getElementById("dest").value = "";
+      document.getElementById("phone").value = "";
+      document.getElementById("email").value = "";
+      document.getElementById("notes").value = "";
     }
-  });
-}, 60000);
 
-/* EXPORT CSV */
-function exportCSV() {
-  const start = document.getElementById("startDate").value;
-  const end = document.getElementById("endDate").value;
-  let csv = "Name,Destination,Phone,SupervisorEmail,SupervisorSmsAddress,Email,Notes,Check-In History\n";
+    /* WORKER CHECK-IN */
+    function markAloneOk(id) {
+      const now = new Date().toISOString();
+      entriesRef.doc(id).get().then(function(doc) {
+        if (!doc.exists) return;
+        const history = doc.data().checkins || [];
+        history.push(now);
+        entriesRef.doc(id).update({
+          lastCheckIn: now,
+          checkins: history,
+          alerted: false
+        });
+      });
+    }
 
-  entries.forEach(function(item) {
-    const e = item.data;
-    const loggedDate = e.logged ? e.logged.split("T")[0] : "";
-    if (start && loggedDate < start) return;
-    if (end && loggedDate > end) return;
+    /* STATUS MARKERS */
+    function markReturned(id) {
+      entriesRef.doc(id).update({
+        returned: true,
+        returnNote: "Back"
+      });
+    }
 
-    const history = (e.checkins || [])
-      .map(t => new Date(t).toLocaleString())
-      .join(" | ");
+    function markNotAlone(id) {
+      entriesRef.doc(id).update({
+        returned: true,
+        returnNote: "Not Alone"
+      });
+    }
 
-    csv += `"${e.name}","${e.dest}","${e.phone || ''}","${e.supervisorEmail || ''}","${e.supervisorSmsGateway || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
-  });
+    function resetAlert(id) {
+      entriesRef.doc(id).update({ alerted: false });
+    }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "beacon-safety-tracker.csv";
-  a.click();
-}
+    function forceReturn(id) {
+      entriesRef.doc(id).update({
+        returned: true,
+        returnNote: "Supervisor Override"
+      });
+    }
 
-function val(id) {
-  const el = document.getElementById(id);
-  return el ? el.value.trim() : "";
-}
-</script>
+    /* 📬 DISPATCH OVERDUE CALL TO GOOGLE CLOUD FUNCTION */
+    async function sendBrevoAlert(worker) {
+      try {
+        const response = await fetch(CLOUD_FUNCTION_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            value: {
+              fields: {
+                name: { stringValue: worker.name },
+                dest: { stringValue: worker.dest },
+                phone: { stringValue: worker.phone || "Not Provided" },
+                supervisorEmail: { stringValue: worker.supervisorEmail },
+                alerted: { booleanValue: true }
+              }
+            },
+            oldValue: {
+              fields: {
+                alerted: { booleanValue: false }
+              }
+            }
+          })
+        });
+
+        if (response.ok) {
+          console.log("✅ Cloud Function alert dispatched successfully.");
+        } else {
+          console.error("Cloud function error:", await response.text());
+        }
+      } catch (error) {
+        console.error("Network error reaching Cloud Function:", error);
+      }
+    }
+
+    /* 60-SECOND RECURRING OVERDUE CHECKER */
+    setInterval(function() {
+      entries.forEach(function(item) {
+        const e = item.data;
+        if (e.returned) return;
+
+        const last = new Date(e.lastCheckIn || e.logged);
+        const mins = (Date.now() - last) / 60000;
+
+        if (mins > 120 && !e.alerted) {
+          entriesRef.doc(item.id).update({ alerted: true });
+          sendBrevoAlert(e);
+          alert(`🚨 WARNING: ${e.name} is overdue! Automated supervisor email and text alerts dispatched.`);
+        }
+      });
+    }, 60000);
+
+    /* EXPORT CSV */
+    function exportCSV() {
+      const start = document.getElementById("startDate").value;
+      const end = document.getElementById("endDate").value;
+      let csv = "Name,Destination,Phone,SupervisorEmail,SupervisorSmsAddress,Email,Notes,Check-In History\n";
+
+      entries.forEach(function(item) {
+        const e = item.data;
+        const loggedDate = e.logged ? e.logged.split("T")[0] : "";
+        if (start && loggedDate < start) return;
+        if (end && loggedDate > end) return;
+
+        const history = (e.checkins || [])
+          .map(t => new Date(t).toLocaleString())
+          .join(" | ");
+
+        csv += `"${e.name}","${e.dest}","${e.phone || ''}","${e.supervisorEmail || ''}","${e.supervisorSmsGateway || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "beacon-safety-tracker.csv";
+      a.click();
+    }
+
+    function val(id) {
+      const el = document.getElementById(id);
+      return el ? el.value.trim() : "";
+    }
+  </script>
 </body>
 </html>
