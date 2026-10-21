@@ -21,7 +21,7 @@ body {
   border-radius: 10px;
   border: 1px solid #333;
 }
-input {
+input, select {
   width: 100%;
   padding: 10px;
   margin-top: 5px;
@@ -30,6 +30,10 @@ input {
   color: white;
   border-radius: 8px;
   box-sizing: border-box;
+}
+select option {
+  background: #222;
+  color: white;
 }
 button {
   padding: 8px 12px;
@@ -74,8 +78,16 @@ button {
 
   <input id="name" placeholder="Name *">
   <input id="dest" placeholder="Where are you going? *">
-  <input id="phone" placeholder="Worker Phone *">
-  <input id="supervisorEmail" placeholder="Supervisor Email for Emergency Alerts *">
+  <input id="phone" placeholder="Phone (optional)">
+  
+  <label style="font-size:12px; color:#aaa; margin-top:8px; display:block;">Designated Supervisor for Alerts:</label>
+  <select id="supervisorEmail">
+    <option value="michael.roetheli@txdot.gov">Michael Roetheli (michael.roetheli@txdot.gov)</option>
+    <!-- Add future supervisor options below as needed:
+    <option value="another.supervisor@txdot.gov">Another Supervisor (another.supervisor@txdot.gov)</option>
+    -->
+  </select>
+
   <input id="email" placeholder="Worker Email (optional)">
   <input id="notes" placeholder="Notes (optional)">
   
@@ -100,8 +112,7 @@ button {
 
 <script>
 /* BREVO CONFIGURATION */
-// Paste your Brevo v3 API key here
-const BREVO_API_KEY = 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;
+const BREVO_API_KEY = "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";
 
 // This MUST match the email address you verified in Brevo
 const SENDER_EMAIL = "your-verified-email@domain.com";
@@ -178,14 +189,23 @@ function render() {
     }
 
     let html = "<div class='entry " + statusClass + "'>";
-    html += "<b>" + e.name + "</b> — <span style='font-size:12px; font-weight:bold;'>" + statusText + "</span><br>";
+    html += "<b>" + e.name + "</b>";
 
+    // Show "Completed" only if returned/overridden; show "Checked In" if they have performed a check-in
     if (e.returned) {
-      html += "<span style='color:#4caf50'>✔ Returned: " + (e.returnNote || "Safe") + "</span><br>";
+      html += " — <span style='color:#4caf50; font-weight:bold;'>✔ Completed (" + (e.returnNote || "Safe") + ")</span><br>";
+    } else {
+      html += " — <span style='font-size:12px; font-weight:bold;'>" + statusText + "</span>";
+      if (e.checkins && e.checkins.length > 1) {
+        html += " <span style='color:#5b8df6;'>• Checked In</span>";
+      }
+      html += "<br>";
     }
 
     html += "Destination: " + e.dest + "<br>";
-    html += "Phone: " + e.phone + "<br>";
+    if (e.phone) {
+      html += "Phone: " + e.phone + "<br>";
+    }
     if (e.supervisorEmail) {
       html += "Supervisor: " + e.supervisorEmail + "<br>";
     }
@@ -224,12 +244,13 @@ function addEntry() {
   const name = val("name");
   const dest = val("dest");
   const phone = val("phone");
-  const supervisorEmail = val("supervisorEmail");
+  const supervisorEmail = document.getElementById("supervisorEmail").value;
   const email = val("email");
   const notes = val("notes");
 
-  if (!name || !dest || !phone || !supervisorEmail) {
-    return alert("Please fill in Name, Destination, Phone, and Supervisor Email.");
+  // Name and Destination are required; Phone is optional
+  if (!name || !dest || !supervisorEmail) {
+    return alert("Please fill in Name, Destination, and select a Supervisor.");
   }
 
   const now = new Date().toISOString();
@@ -248,6 +269,13 @@ function addEntry() {
     alerted: false
   });
   alert("Entry saved and monitoring started!");
+
+  // Clear entry input fields
+  document.getElementById("name").value = "";
+  document.getElementById("dest").value = "";
+  document.getElementById("phone").value = "";
+  document.getElementById("email").value = "";
+  document.getElementById("notes").value = "";
 }
 
 /* CHECK-IN */
@@ -311,7 +339,7 @@ async function sendBrevoAlert(worker) {
         <p><strong>${worker.name}</strong> has failed to check in within the required 2-hour window.</p>
         <hr>
         <p><strong>Field Destination:</strong> ${worker.dest}</p>
-        <p><strong>Worker Phone:</strong> <a href="tel:${worker.phone}">${worker.phone}</a></p>
+        <p><strong>Worker Phone:</strong> ${worker.phone ? `<a href="tel:${worker.phone}">${worker.phone}</a>` : 'Not Provided'}</p>
         <p><strong>Last Recorded Check-In:</strong> ${lastSeen}</p>
         <p><strong>Field Notes:</strong> ${worker.notes || 'None'}</p>
         <hr>
@@ -365,7 +393,7 @@ setInterval(function() {
   });
 }, 60000);
 
-/* EXPORT */
+/* EXPORT CSV */
 function exportCSV() {
   const start = document.getElementById("startDate").value;
   const end = document.getElementById("endDate").value;
@@ -381,7 +409,7 @@ function exportCSV() {
       .map(t => new Date(t).toLocaleString())
       .join(" | ");
 
-    csv += `"${e.name}","${e.dest}","${e.phone}","${e.supervisorEmail || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
+    csv += `"${e.name}","${e.dest}","${e.phone || ''}","${e.supervisorEmail || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
