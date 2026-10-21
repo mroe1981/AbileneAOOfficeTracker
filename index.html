@@ -80,18 +80,14 @@ button {
   <input id="dest" placeholder="Where are you going? *">
   <input id="phone" placeholder="Phone (optional)">
   
-  <label style="font-size:12px; color:#aaa; margin-top:8px; display:block;">Designated Supervisor for Alerts:</label>
-  <select id="supervisorEmail">
-    <option value="michael.roetheli@txdot.gov">Michael Roetheli (michael.roetheli@txdot.gov)</option>
-    <!-- Add future supervisor options below as needed:
-    <option value="another.supervisor@txdot.gov">Another Supervisor (another.supervisor@txdot.gov)</option>
-    -->
-  </select>
+  <!-- Single Clean Supervisor Dropdown Selection -->
+  <label style="font-size:12px; color:#aaa; margin-top:8px; display:block;">Designated Supervisor:</label>
+  <select id="supervisorSelect"></select>
 
   <input id="email" placeholder="Worker Email (optional)">
   <input id="notes" placeholder="Notes (optional)">
   
-  <input id="supervisorCode" placeholder="Supervisor Code">
+  <input id="supervisorCode" type="password" placeholder="Supervisor Code">
   <button onclick="setSupervisor()">Enable Supervisor</button>
   <button class="primary" onclick="addEntry()">Add Entry</button>
 </div>
@@ -111,6 +107,16 @@ button {
 </div>
 
 <script>
+/* 👥 SUPERVISORS DATABASE (Easily add more here in the future!) */
+const SUPERVISORS = [
+  { 
+    name: "Mike Roetheli", 
+    email: "michael.roetheli@txdot.gov", 
+    phone: "3252687662", 
+    gateway: "@txt.att.net" // AT&T SMS Gateway 
+  }
+];
+
 /* BREVO CONFIGURATION */
 const BREVO_API_KEY = "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";
 
@@ -124,6 +130,15 @@ if (!userId) {
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
+
+/* POPULATE SUPERVISORS DROPDOWN ON PAGE LOAD */
+const selectEl = document.getElementById("supervisorSelect");
+SUPERVISORS.forEach((sup, index) => {
+  const option = document.createElement("option");
+  option.value = index; // Store index for array lookup later
+  option.textContent = sup.name;
+  selectEl.appendChild(option);
+});
 
 /* SUPERVISOR */
 let isSupervisor = localStorage.getItem("isSupervisor") === "true";
@@ -206,8 +221,8 @@ function render() {
     if (e.phone) {
       html += "Phone: " + e.phone + "<br>";
     }
-    if (e.supervisorEmail) {
-      html += "Supervisor: " + e.supervisorEmail + "<br>";
+    if (e.supervisorName) {
+      html += "Supervisor: " + e.supervisorName + "<br>";
     }
     if (e.email) {
       html += "Email: " + e.email + "<br>";
@@ -244,21 +259,28 @@ function addEntry() {
   const name = val("name");
   const dest = val("dest");
   const phone = val("phone");
-  const supervisorEmail = document.getElementById("supervisorEmail").value;
   const email = val("email");
   const notes = val("notes");
 
-  // Name and Destination are required; Phone is optional
-  if (!name || !dest || !supervisorEmail) {
+  // Retrieve selected supervisor object from the stored SUPERVISORS array
+  const supervisorIndex = document.getElementById("supervisorSelect").value;
+  const selectedSupervisor = SUPERVISORS[supervisorIndex];
+
+  if (!name || !dest || !selectedSupervisor) {
     return alert("Please fill in Name, Destination, and select a Supervisor.");
   }
+
+  // Construct SMS Gateway Address on the fly
+  const supervisorSmsGateway = selectedSupervisor.phone + selectedSupervisor.gateway;
 
   const now = new Date().toISOString();
   entriesRef.add({
     name,
     dest,
     phone,
-    supervisorEmail,
+    supervisorName: selectedSupervisor.name,
+    supervisorEmail: selectedSupervisor.email,
+    supervisorSmsGateway: supervisorSmsGateway,
     email,
     notes,
     userId: userId,
@@ -320,54 +342,72 @@ function forceReturn(id) {
   });
 }
 
-/* BREVO EMAIL DISPATCHER */
+/* BREVO DUAL EMAIL & SMS DISPATCHER */
 async function sendBrevoAlert(worker) {
-  if (!worker.supervisorEmail) {
-    console.warn("No supervisor email found for " + worker.name);
-    return;
-  }
-
   const lastSeen = new Date(worker.lastCheckIn || worker.logged).toLocaleTimeString();
+  const alertPromises = [];
 
-  const payload = {
-    sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-    to: [{ email: worker.supervisorEmail }],
-    subject: `🚨 OVERDUE ALERT: Lone Worker ${worker.name} Missed Check-In`,
-    htmlContent: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid red; border-radius: 8px;">
-        <h2 style="color: red; margin-top: 0;">🚨 Lone Worker Overdue Alert</h2>
-        <p><strong>${worker.name}</strong> has failed to check in within the required 2-hour window.</p>
-        <hr>
-        <p><strong>Field Destination:</strong> ${worker.dest}</p>
-        <p><strong>Worker Phone:</strong> ${worker.phone ? `<a href="tel:${worker.phone}">${worker.phone}</a>` : 'Not Provided'}</p>
-        <p><strong>Last Recorded Check-In:</strong> ${lastSeen}</p>
-        <p><strong>Field Notes:</strong> ${worker.notes || 'None'}</p>
-        <hr>
-        <p style="color: #666; font-size: 12px;">Please initiate contact with the employee immediately to confirm safety.</p>
-      </div>
-    `
-  };
+  // ALERT 1: Formal HTML Email Alert
+  if (worker.supervisorEmail) {
+    const emailPayload = {
+      sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+      to: [{ email: worker.supervisorEmail }],
+      subject: `🚨 OVERDUE ALERT: Lone Worker ${worker.name} Missed Check-In`,
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid red; border-radius: 8px;">
+          <h2 style="color: red; margin-top: 0;">🚨 Lone Worker Overdue Alert</h2>
+          <p><strong>${worker.name}</strong> has failed to check in within the required 2-hour window.</p>
+          <hr>
+          <p><strong>Field Destination:</strong> ${worker.dest}</p>
+          <p><strong>Worker Phone:</strong> ${worker.phone ? `<a href="tel:${worker.phone}">${worker.phone}</a>` : 'Not Provided'}</p>
+          <p><strong>Last Recorded Check-In:</strong> ${lastSeen}</p>
+          <p><strong>Field Notes:</strong> ${worker.notes || 'None'}</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">Please initiate contact with the employee immediately to confirm safety.</p>
+        </div>
+      `
+    };
 
-  try {
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "accept": "application/json",
-        "api-key": BREVO_API_KEY,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-      console.log(`Alert email successfully sent to ${worker.supervisorEmail}`);
-    } else {
-      const err = await response.json();
-      console.error("Brevo API error:", err);
-    }
-  } catch (error) {
-    console.error("Network error triggering Brevo email:", error);
+    alertPromises.push(
+      fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(emailPayload)
+      })
+      .then(res => res.ok ? console.log(`Email alert dispatched to ${worker.supervisorEmail}`) : console.error("Email send failed"))
+      .catch(err => console.error("Email networking error:", err))
+    );
   }
+
+  // ALERT 2: Plain text SMS Gateway Alert
+  if (worker.supervisorSmsGateway) {
+    const smsPayload = {
+      sender: { name: "BEACON", email: SENDER_EMAIL },
+      to: [{ email: worker.supervisorSmsGateway }],
+      textContent: `ALERT: Worker ${worker.name} is OVERDUE! Dest: ${worker.dest}. Phone: ${worker.phone || 'None'}. Notes: ${worker.notes || 'None'}.`
+    };
+
+    alertPromises.push(
+      fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(smsPayload)
+      })
+      .then(res => res.ok ? console.log(`SMS alert dispatched to ${worker.supervisorSmsGateway}`) : console.error("SMS send failed"))
+      .catch(err => console.error("SMS networking error:", err))
+    );
+  }
+
+  // Run both email and text transmissions in parallel
+  await Promise.all(alertPromises);
 }
 
 /* 60-SECOND BACKGROUND CHECK */
@@ -384,11 +424,11 @@ setInterval(function() {
       // 1. Mark as alerted in Firestore immediately so other tabs don't fire duplicates
       entriesRef.doc(item.id).update({ alerted: true });
       
-      // 2. Dispatch Brevo Email
+      // 2. Dispatch Brevo Alerts (both Email & SMS)
       sendBrevoAlert(e);
       
       // 3. Screen alert
-      alert("🚨 WARNING: " + e.name + " is overdue! Automated supervisor email dispatched.");
+      alert("🚨 WARNING: " + e.name + " is overdue! Automated supervisor email and text alerts dispatched.");
     }
   });
 }, 60000);
@@ -397,7 +437,7 @@ setInterval(function() {
 function exportCSV() {
   const start = document.getElementById("startDate").value;
   const end = document.getElementById("endDate").value;
-  let csv = "Name,Destination,Phone,SupervisorEmail,Email,Notes,Check-In History\n";
+  let csv = "Name,Destination,Phone,SupervisorEmail,SupervisorSmsAddress,Email,Notes,Check-In History\n";
 
   entries.forEach(function(item) {
     const e = item.data;
@@ -409,7 +449,7 @@ function exportCSV() {
       .map(t => new Date(t).toLocaleString())
       .join(" | ");
 
-    csv += `"${e.name}","${e.dest}","${e.phone || ''}","${e.supervisorEmail || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
+    csv += `"${e.name}","${e.dest}","${e.phone || ''}","${e.supervisorEmail || ''}","${e.supervisorSmsGateway || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
