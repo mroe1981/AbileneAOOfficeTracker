@@ -83,7 +83,6 @@ button {
   <!-- Single Clean Supervisor Dropdown Selection -->
   <label style="font-size:12px; color:#aaa; margin-top:8px; display:block;">Designated Supervisor:</label>
   <select id="supervisorSelect"></select>
-
   <input id="email" placeholder="Worker Email (optional)">
   <input id="notes" placeholder="Notes (optional)">
   
@@ -107,7 +106,7 @@ button {
 </div>
 
 <script>
-/* 👥 SUPERVISORS DATABASE (Easily add more here in the future!) */
+/* 👥 SUPERVISORS DATABASE */
 const SUPERVISORS = [
   { 
     name: "Mike Roetheli", 
@@ -120,8 +119,8 @@ const SUPERVISORS = [
 /* BREVO CONFIGURATION */
 const BREVO_API_KEY = "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";
 
-// This MUST match the email address you verified in Brevo
-const SENDER_EMAIL = "michael.roetheli@txdot.gov";
+// ⚠️ CHANGE THIS to your newly verified GMAIL address you whitelisted on TxDOT quarantine!
+const SENDER_EMAIL = "your-new-gmail-sender@gmail.com"; 
 const SENDER_NAME = "B.E.A.C.O.N. Safety Alert";
 
 /* USER ID */
@@ -368,6 +367,7 @@ async function sendBrevoAlert(worker) {
       `
     };
 
+    // We catch errors individually so a failed SMS doesn't stop the email
     alertPromises.push(
       fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -388,6 +388,7 @@ async function sendBrevoAlert(worker) {
     const smsPayload = {
       sender: { name: "BEACON", email: SENDER_EMAIL },
       to: [{ email: worker.supervisorSmsGateway }],
+      subject: "BEACON SMS Alert", // FIXED: Added missing subject line requirement!
       textContent: `ALERT: Worker ${worker.name} is OVERDUE! Dest: ${worker.dest}. Phone: ${worker.phone || 'None'}. Notes: ${worker.notes || 'None'}.`
     };
 
