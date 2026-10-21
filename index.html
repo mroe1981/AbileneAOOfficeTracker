@@ -341,12 +341,12 @@ function forceReturn(id) {
   });
 }
 
-/* BREVO DUAL EMAIL & SMS DISPATCHER */
+/* 📬 DUAL EMAIL (BREVO) & TELEGRAM PUSH TEXT DISPATCHER */
 async function sendBrevoAlert(worker) {
   const lastSeen = new Date(worker.lastCheckIn || worker.logged).toLocaleTimeString();
   const alertPromises = [];
 
-  // ALERT 1: Formal HTML Email Alert
+  // ALERT 1: Formal HTML Email Alert via Brevo
   if (worker.supervisorEmail) {
     const emailPayload = {
       sender: { name: SENDER_NAME, email: SENDER_EMAIL },
@@ -367,7 +367,6 @@ async function sendBrevoAlert(worker) {
       `
     };
 
-    // We catch errors individually so a failed SMS doesn't stop the email
     alertPromises.push(
       fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -378,38 +377,39 @@ async function sendBrevoAlert(worker) {
         },
         body: JSON.stringify(emailPayload)
       })
-      .then(res => res.ok ? console.log(`Email alert dispatched to ${worker.supervisorEmail}`) : console.error("Email send failed"))
-      .catch(err => console.error("Email networking error:", err))
+      .then(res => res.ok ? console.log("Email alert sent!") : console.error("Email failed"))
+      .catch(err => console.error("Email error:", err))
     );
   }
 
-  // ALERT 2: Plain text SMS Gateway Alert
-  if (worker.supervisorSmsGateway) {
-    const smsPayload = {
-      sender: { name: "BEACON", email: SENDER_EMAIL },
-      to: [{ email: worker.supervisorSmsGateway }],
-      subject: "BEACON SMS Alert", // FIXED: Added missing subject line requirement!
-      textContent: `ALERT: Worker ${worker.name} is OVERDUE! Dest: ${worker.dest}. Phone: ${worker.phone || 'None'}. Notes: ${worker.notes || 'None'}.`
-    };
+  // ALERT 2: 100% Free, Unlimited Telegram Push-Text Alert
+  // 🔑 PASTE THE TOKEN AND CHAT ID YOU CREATED HERE:
+  const TELEGRAM_BOT_TOKEN = "8855908848:AAHN8S-kCB8mx8pGCH-_FDj_A7H62DFhDro"; 
+  const TELEGRAM_CHAT_ID = "8846135295"; 
+
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+    const messageText = `🚨 OVERDUE ALERT: Lone worker ${worker.name} missed their check-in!\n\n📍 Dest: ${worker.dest}\n📞 Phone: ${worker.phone || 'None'}\n📝 Notes: ${worker.notes || 'None'}`;
+    
+    const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
     alertPromises.push(
-      fetch("https://api.brevo.com/v3/smtp/email", {
+      fetch(telegramUrl, {
         method: "POST",
-        headers: {
-          "accept": "application/json",
-          "api-key": BREVO_API_KEY,
-          "content-type": "application/json"
-        },
-        body: JSON.stringify(smsPayload)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: messageText
+        })
       })
-      .then(res => res.ok ? console.log(`SMS alert dispatched to ${worker.supervisorSmsGateway}`) : console.error("SMS send failed"))
-      .catch(err => console.error("SMS networking error:", err))
+      .then(res => res.ok ? console.log("Telegram push text alert sent successfully!") : console.error("Telegram alert failed"))
+      .catch(err => console.error("Telegram error:", err))
     );
   }
 
   // Run both email and text transmissions in parallel
   await Promise.all(alertPromises);
 }
+
 
 /* 60-SECOND BACKGROUND CHECK */
 setInterval(function() {
