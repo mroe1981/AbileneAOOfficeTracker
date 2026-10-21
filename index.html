@@ -3,131 +3,125 @@
 <head>
 <meta charset="UTF-8">
 <title>B.E.A.C.O.N.</title>
-
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
 <style>
-body{
-  font-family:Arial;
-  background:#0f1117;
-  color:#eef0f8;
-  max-width:500px;
-  margin:auto;
+body {
+  font-family: Arial, sans-serif;
+  background: #0f1117;
+  color: #eef0f8;
+  max-width: 500px;
+  margin: auto;
+  padding: 10px;
 }
-
-.card{
-  background:#191d27;
-  padding:15px;
-  margin:10px;
-  border-radius:10px;
-  border:1px solid #333;
+.card {
+  background: #191d27;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+  border: 1px solid #333;
 }
-
-input{
-  width:100%;
-  padding:10px;
-  margin-top:5px;
-  background:#222;
-  border:1px solid #444;
-  color:white;
-  border-radius:8px;
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  background: #222;
+  border: 1px solid #444;
+  color: white;
+  border-radius: 8px;
+  box-sizing: border-box;
 }
-
-button{
-  padding:8px;
-  border-radius:8px;
-  border:none;
-  margin-top:6px;
-  cursor:pointer;
+button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  margin-top: 6px;
+  cursor: pointer;
 }
-
-.primary{
-  background:#5b8df6;
-  color:white;
+.primary {
+  background: #5b8df6;
+  color: white;
+  width: 100%;
+  padding: 12px;
+  font-weight: bold;
 }
-
-.entry{
-  padding:12px;
-  border-radius:10px;
-  margin-bottom:10px;
+.entry {
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
 }
-
-.safe{
-  border:2px solid #2ecc71;
-  background:#13291c;
+.safe {
+  border: 2px solid #2ecc71;
+  background: #13291c;
 }
-
-.warning{
-  border:2px solid #f1c40f;
-  background:#2c260e;
+.warning {
+  border: 2px solid #f1c40f;
+  background: #2c260e;
 }
-
-.overdue{
-  border:2px solid red;
-  background:#2a1515;
+.overdue {
+  border: 2px solid red;
+  background: #2a1515;
 }
 </style>
-
 </head>
-
 <body>
 
 <div class="card">
-<h2>B.E.A.C.O.N.</h2>
-<div style="font-size:12px; color:#aaa;">
-  Backup Employee Activity Check-In & Observation Network
-</div>
-``
+  <h2>B.E.A.C.O.N.</h2>
+  <div style="font-size:12px; color:#aaa; margin-bottom: 10px;">
+    Backup Employee Activity Check-In & Observation Network
+  </div>
 
-<input id="name" placeholder="Name">
-<input id="dest" placeholder="Where are you going?">
-<input id="phone" placeholder="Phone">
-<input id="email" placeholder="Email (optional)">
-<input id="notes" placeholder="Notes (optional)">
-
-<input id="supervisorCode" placeholder="Supervisor Code (optional - supervisors only)">
-<button onclick="setSupervisor()">Enable Supervisor</button>
-
-<button class="primary" onclick="addEntry()">Add Entry</button>
-</div>
-
-<div class="card">
-<h3>Active Entries</h3>
-<div id="list"></div>
+  <input id="name" placeholder="Name *">
+  <input id="dest" placeholder="Where are you going? *">
+  <input id="phone" placeholder="Worker Phone *">
+  <input id="supervisorEmail" placeholder="Supervisor Email for Emergency Alerts *">
+  <input id="email" placeholder="Worker Email (optional)">
+  <input id="notes" placeholder="Notes (optional)">
+  
+  <input id="supervisorCode" placeholder="Supervisor Code (0851)">
+  <button onclick="setSupervisor()">Enable Supervisor</button>
+  <button class="primary" onclick="addEntry()">Add Entry</button>
 </div>
 
 <div class="card">
-<h3>Export CSV (Date Range)</h3>
+  <h3>Active Entries</h3>
+  <div id="list"></div>
+</div>
 
-<label>Start Date:</label>
-<input type="date" id="startDate">
-
-<label>End Date:</label>
-<input type="date" id="endDate">
-
-<button onclick="exportCSV()">Download CSV</button>
+<div class="card">
+  <h3>Export CSV (Date Range)</h3>
+  <label>Start Date:</label>
+  <input type="date" id="startDate">
+  <label>End Date:</label>
+  <input type="date" id="endDate">
+  <button onclick="exportCSV()">Download CSV</button>
 </div>
 
 <script>
+/* BREVO CONFIGURATION */
+// Paste your Brevo v3 API key here
+const BREVO_API_KEY = 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;
+
+// This MUST match the email address you verified in Brevo
+const SENDER_EMAIL = "your-verified-email@domain.com";
+const SENDER_NAME = "B.E.A.C.O.N. Safety Alert";
 
 /* USER ID */
 let userId = localStorage.getItem("userId");
-if(!userId){
+if (!userId) {
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
 
 /* SUPERVISOR */
 let isSupervisor = localStorage.getItem("isSupervisor") === "true";
-
-function setSupervisor(){
+function setSupervisor() {
   const code = document.getElementById("supervisorCode").value;
-
-  if(code === "0851"){
+  if (code === "0851") {
     localStorage.setItem("isSupervisor", "true");
     isSupervisor = true;
-    alert("Supervisor enabled");
+    alert("Supervisor mode enabled");
     render();
   } else {
     alert("Invalid code");
@@ -140,103 +134,84 @@ const firebaseConfig = {
   authDomain: "abl-ao--solo-worker-tracker.firebaseapp.com",
   projectId: "abl-ao--solo-worker-tracker"
 };
-
 firebase.initializeApp(firebaseConfig);
-
 const db = firebase.firestore();
 const entriesRef = db.collection("entries");
-
 let entries = [];
 
-entriesRef.onSnapshot(function(snapshot){
+entriesRef.onSnapshot(function(snapshot) {
   entries = [];
-  snapshot.forEach(function(doc){
+  snapshot.forEach(function(doc) {
     entries.push({ id: doc.id, data: doc.data() });
   });
   render();
 });
 
 /* FILTER */
-function isActive(e){
+function isActive(e) {
   const today = new Date().toISOString().split("T")[0];
-  const d = (e.logged||"").split("T")[0];
+  const d = (e.logged || "").split("T")[0];
   return d === today || !e.returned;
 }
 
 /* RENDER */
-function render(){
+function render() {
   const list = document.getElementById("list");
   list.innerHTML = "";
 
-  entries.filter(i=>isActive(i.data)).forEach(function(item){
+  entries.filter(i => isActive(i.data)).forEach(function(item) {
     const e = item.data;
+    const last = new Date(e.lastCheckIn || e.logged);
+    const mins = Math.floor((Date.now() - last) / 60000);
 
-   const last = new Date(e.lastCheckIn || e.logged);
-const mins = Math.floor((Date.now()-last)/60000);
+    let statusClass = "safe";
+    let statusText = "SAFE";
 
-let statusClass = "";
-let statusText = "";
-
-if(!e.returned){   // ✅ ONLY apply safety logic if still out
-
-  statusClass = "safe";
-  statusText = "SAFE";
-
-  if(mins > 120){
-    statusClass = "overdue";
-    statusText = "OVERDUE";
-  } else if(mins > 90){
-    statusClass = "warning";
-    statusText = "CHECK SOON";
-  }
-
-    }
-
-    let html = "<div class='entry "+statusClass+"'>";
-
-    html += "<b>"+e.name+"</b>";
-
-if(!e.returned){
-  html += "<span style='color:#4caf50'>✔ Completed</span><br>";
-}
-
-html += "<br>";
-    html += "Destination: "+e.dest+"<br>";
-    html += "Phone: "+e.phone+"<br>";
-
-    if(e.email){
-      html += "Email: "+e.email+"<br>";
-    }
-
-    if(e.notes){
-      html += "Notes: "+e.notes+"<br>";
-    }
-
-    html += "Last check-in: "+mins+" min ago<br>";
-
-    if(e.checkins){
-      html += "Check-ins: "+e.checkins.length+"<br>";
-    }
-
-    if(e.returned){
-      html += "<b>"+(e.returnNote||"")+"</b>";
-    } else {
-
-      if(e.userId === userId || isSupervisor){
-
-        html += "<button onclick=\"markReturned('"+item.id+"')\">Back</button>";
-        html += "<button onclick=\"markNotAlone('"+item.id+"')\">Not Alone</button>";
-        html += "<button onclick=\"markAloneOk('"+item.id+"')\">Check-In</button>";
-
-        if(isSupervisor){
-          html += "<button onclick=\"resetAlert('"+item.id+"')\">Reset Alert</button>";
-          html += "<button onclick=\"forceReturn('"+item.id+"')\">Force Return</button>";
-        }
-
-      } else {
-        html += "<i>Controlled by another user</i>";
+    if (!e.returned) {
+      if (mins > 120) {
+        statusClass = "overdue";
+        statusText = "OVERDUE (ALERT SENT)";
+      } else if (mins > 90) {
+        statusClass = "warning";
+        statusText = "CHECK SOON";
       }
+    }
 
+    let html = "<div class='entry " + statusClass + "'>";
+    html += "<b>" + e.name + "</b> — <span style='font-size:12px; font-weight:bold;'>" + statusText + "</span><br>";
+
+    if (e.returned) {
+      html += "<span style='color:#4caf50'>✔ Returned: " + (e.returnNote || "Safe") + "</span><br>";
+    }
+
+    html += "Destination: " + e.dest + "<br>";
+    html += "Phone: " + e.phone + "<br>";
+    if (e.supervisorEmail) {
+      html += "Supervisor: " + e.supervisorEmail + "<br>";
+    }
+    if (e.email) {
+      html += "Email: " + e.email + "<br>";
+    }
+    if (e.notes) {
+      html += "Notes: " + e.notes + "<br>";
+    }
+    html += "Last check-in: " + mins + " min ago<br>";
+    if (e.checkins) {
+      html += "Total Check-ins: " + e.checkins.length + "<br>";
+    }
+
+    if (!e.returned) {
+      if (e.userId === userId || isSupervisor) {
+        html += "<button onclick=\"markReturned('" + item.id + "')\">Back</button> ";
+        html += "<button onclick=\"markNotAlone('" + item.id + "')\">Not Alone</button> ";
+        html += "<button onclick=\"markAloneOk('" + item.id + "')\">Check-In</button> ";
+        if (isSupervisor) {
+          html += "<button onclick=\"resetAlert('" + item.id + "')\">Reset Alert</button> ";
+          html += "<button onclick=\"forceReturn('" + item.id + "')\">Force Return</button> ";
+        }
+      } else {
+        html += "<i>Controlled by another device</i>";
+      }
     }
 
     html += "</div>";
@@ -245,134 +220,182 @@ html += "<br>";
 }
 
 /* ADD ENTRY */
-function addEntry(){
-
+function addEntry() {
   const name = val("name");
   const dest = val("dest");
   const phone = val("phone");
+  const supervisorEmail = val("supervisorEmail");
   const email = val("email");
   const notes = val("notes");
 
-  if(!name || !dest || !phone){
-    return alert("Fill required fields");
+  if (!name || !dest || !phone || !supervisorEmail) {
+    return alert("Please fill in Name, Destination, Phone, and Supervisor Email.");
   }
 
   const now = new Date().toISOString();
-
   entriesRef.add({
     name,
     dest,
     phone,
+    supervisorEmail,
     email,
     notes,
     userId: userId,
     logged: now,
     lastCheckIn: now,
     checkins: [now],
-    returned:false,
-    alerted:false
+    returned: false,
+    alerted: false
   });
-
-  alert("Saved");
+  alert("Entry saved and monitoring started!");
 }
 
 /* CHECK-IN */
-function markAloneOk(id){
+function markAloneOk(id) {
   const now = new Date().toISOString();
-
-  entriesRef.doc(id).get().then(function(doc){
-    if(!doc.exists) return;
-
+  entriesRef.doc(id).get().then(function(doc) {
+    if (!doc.exists) return;
     const history = doc.data().checkins || [];
     history.push(now);
-
     entriesRef.doc(id).update({
       lastCheckIn: now,
-      checkins: history
+      checkins: history,
+      alerted: false // Reset alert flag upon successful check-in
     });
   });
 }
 
 /* ACTIONS */
-function markReturned(id){
+function markReturned(id) {
   entriesRef.doc(id).update({
-    returned:true,
-    returnNote:"Back"
+    returned: true,
+    returnNote: "Back"
   });
 }
 
-function markNotAlone(id){
+function markNotAlone(id) {
   entriesRef.doc(id).update({
-    returned:true,
-    returnNote:"Not Alone"
+    returned: true,
+    returnNote: "Not Alone"
   });
 }
 
 /* SUPERVISOR */
-function resetAlert(id){
-  entriesRef.doc(id).update({alerted:false});
+function resetAlert(id) {
+  entriesRef.doc(id).update({ alerted: false });
 }
 
-function forceReturn(id){
+function forceReturn(id) {
   entriesRef.doc(id).update({
-    returned:true,
-    returnNote:"Supervisor Override"
+    returned: true,
+    returnNote: "Supervisor Override"
   });
 }
 
-/* ALERT */
-setInterval(function(){
-  entries.forEach(function(item){
-    const e=item.data;
-    if(e.returned) return;
+/* BREVO EMAIL DISPATCHER */
+async function sendBrevoAlert(worker) {
+  if (!worker.supervisorEmail) {
+    console.warn("No supervisor email found for " + worker.name);
+    return;
+  }
 
-    const last=new Date(e.lastCheckIn||e.logged);
-    const mins=(Date.now()-last)/60000;
+  const lastSeen = new Date(worker.lastCheckIn || worker.logged).toLocaleTimeString();
 
-    if(mins>120 && !e.alerted){
-      alert(e.name+" overdue");
-      entriesRef.doc(item.id).update({alerted:true});
+  const payload = {
+    sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+    to: [{ email: worker.supervisorEmail }],
+    subject: `🚨 OVERDUE ALERT: Lone Worker ${worker.name} Missed Check-In`,
+    htmlContent: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid red; border-radius: 8px;">
+        <h2 style="color: red; margin-top: 0;">🚨 Lone Worker Overdue Alert</h2>
+        <p><strong>${worker.name}</strong> has failed to check in within the required 2-hour window.</p>
+        <hr>
+        <p><strong>Field Destination:</strong> ${worker.dest}</p>
+        <p><strong>Worker Phone:</strong> <a href="tel:${worker.phone}">${worker.phone}</a></p>
+        <p><strong>Last Recorded Check-In:</strong> ${lastSeen}</p>
+        <p><strong>Field Notes:</strong> ${worker.notes || 'None'}</p>
+        <hr>
+        <p style="color: #666; font-size: 12px;">Please initiate contact with the employee immediately to confirm safety.</p>
+      </div>
+    `
+  };
+
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      console.log(`Alert email successfully sent to ${worker.supervisorEmail}`);
+    } else {
+      const err = await response.json();
+      console.error("Brevo API error:", err);
+    }
+  } catch (error) {
+    console.error("Network error triggering Brevo email:", error);
+  }
+}
+
+/* 60-SECOND BACKGROUND CHECK */
+setInterval(function() {
+  entries.forEach(function(item) {
+    const e = item.data;
+    if (e.returned) return;
+
+    const last = new Date(e.lastCheckIn || e.logged);
+    const mins = (Date.now() - last) / 60000;
+
+    // Overdue condition (> 120 minutes and hasn't alerted yet)
+    if (mins > 120 && !e.alerted) {
+      // 1. Mark as alerted in Firestore immediately so other tabs don't fire duplicates
+      entriesRef.doc(item.id).update({ alerted: true });
+      
+      // 2. Dispatch Brevo Email
+      sendBrevoAlert(e);
+      
+      // 3. Screen alert
+      alert("🚨 WARNING: " + e.name + " is overdue! Automated supervisor email dispatched.");
     }
   });
-},60000);
+}, 60000);
 
 /* EXPORT */
-function exportCSV(){
-
+function exportCSV() {
   const start = document.getElementById("startDate").value;
   const end = document.getElementById("endDate").value;
+  let csv = "Name,Destination,Phone,SupervisorEmail,Email,Notes,Check-In History\n";
 
-  let csv = "Name,Destination,Phone,Email,Notes,Check-In History\n";
-
-  entries.forEach(function(item){
+  entries.forEach(function(item) {
     const e = item.data;
-
     const loggedDate = e.logged ? e.logged.split("T")[0] : "";
-
-    if(start && loggedDate < start) return;
-    if(end && loggedDate > end) return;
+    if (start && loggedDate < start) return;
+    if (end && loggedDate > end) return;
 
     const history = (e.checkins || [])
       .map(t => new Date(t).toLocaleString())
       .join(" | ");
 
-    csv += `"${e.name}","${e.dest}","${e.phone}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
+    csv += `"${e.name}","${e.dest}","${e.phone}","${e.supervisorEmail || ''}","${e.email || ''}","${e.notes || ''}","${history}"\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
-  a.download = "office-tracker.csv";
+  a.download = "beacon-safety-tracker.csv";
   a.click();
 }
 
-function val(id){
-  return document.getElementById(id).value.trim();
+function val(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : "";
 }
-
 </script>
-
 </body>
 </html>
