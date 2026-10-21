@@ -83,6 +83,7 @@ button {
   <!-- Single Clean Supervisor Dropdown Selection -->
   <label style="font-size:12px; color:#aaa; margin-top:8px; display:block;">Designated Supervisor:</label>
   <select id="supervisorSelect"></select>
+
   <input id="email" placeholder="Worker Email (optional)">
   <input id="notes" placeholder="Notes (optional)">
   
@@ -115,13 +116,6 @@ const SUPERVISORS = [
     gateway: "@txt.att.net" // AT&T SMS Gateway 
   }
 ];
-
-/* BREVO CONFIGURATION */
-const BREVO_API_KEY = "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";
-
-// ⚠️ CHANGE THIS to your newly verified GMAIL address you whitelisted on TxDOT quarantine!
-const SENDER_EMAIL = "beacon.abilene.ao@gmail.com"; 
-const SENDER_NAME = "B.E.A.C.O.N. Safety Alert";
 
 /* USER ID */
 let userId = localStorage.getItem("userId");
@@ -341,75 +335,41 @@ function forceReturn(id) {
   });
 }
 
-/* 📬 DUAL EMAIL (BREVO) & TELEGRAM PUSH TEXT DISPATCHER */
+/* 📬 DIRECT CALL TO YOUR GOOGLE CLOUD FUNCTION */
+const CLOUD_FUNCTION_URL = "https://on-worker-overdue-949187929232.us-south1.run.app/";
+
 async function sendBrevoAlert(worker) {
-  const lastSeen = new Date(worker.lastCheckIn || worker.logged).toLocaleTimeString();
-  const alertPromises = [];
-
-  // ALERT 1: Formal HTML Email Alert via Brevo
-  if (worker.supervisorEmail) {
-    const emailPayload = {
-      sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-      to: [{ email: worker.supervisorEmail }],
-      subject: `🚨 OVERDUE ALERT: Lone Worker ${worker.name} Missed Check-In`,
-      htmlContent: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; border: 2px solid red; border-radius: 8px;">
-          <h2 style="color: red; margin-top: 0;">🚨 Lone Worker Overdue Alert</h2>
-          <p><strong>${worker.name}</strong> has failed to check in within the required 2-hour window.</p>
-          <hr>
-          <p><strong>Field Destination:</strong> ${worker.dest}</p>
-          <p><strong>Worker Phone:</strong> ${worker.phone ? `<a href="tel:${worker.phone}">${worker.phone}</a>` : 'Not Provided'}</p>
-          <p><strong>Last Recorded Check-In:</strong> ${lastSeen}</p>
-          <p><strong>Field Notes:</strong> ${worker.notes || 'None'}</p>
-          <hr>
-          <p style="color: #666; font-size: 12px;">Please initiate contact with the employee immediately to confirm safety.</p>
-        </div>
-      `
-    };
-
-    alertPromises.push(
-      fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "accept": "application/json",
-          "api-key": BREVO_API_KEY,
-          "content-type": "application/json"
+  try {
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        value: {
+          fields: {
+            name: { stringValue: worker.name },
+            dest: { stringValue: worker.dest },
+            phone: { stringValue: worker.phone || "Not Provided" },
+            supervisorEmail: { stringValue: worker.supervisorEmail },
+            alerted: { booleanValue: true }
+          }
         },
-        body: JSON.stringify(emailPayload)
+        oldValue: {
+          fields: {
+            alerted: { booleanValue: false }
+          }
+        }
       })
-      .then(res => res.ok ? console.log("Email alert sent!") : console.error("Email failed"))
-      .catch(err => console.error("Email error:", err))
-    );
+    });
+
+    if (response.ok) {
+      console.log("✅ Cloud Function triggered successfully!");
+    } else {
+      console.error("Cloud function error:", await response.text());
+    }
+  } catch (error) {
+    console.error("Networking error reaching Cloud Function:", error);
   }
-
-  // ALERT 2: 100% Free, Unlimited Telegram Push-Text Alert
-  // 🔑 PASTE THE TOKEN AND CHAT ID YOU CREATED HERE:
-  const TELEGRAM_BOT_TOKEN = "8855908848:AAHN8S-kCB8mx8pGCH-_FDj_A7H62DFhDro"; 
-  const TELEGRAM_CHAT_ID = "8846135295"; 
-
-  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-    const messageText = `🚨 OVERDUE ALERT: Lone worker ${worker.name} missed their check-in!\n\n📍 Dest: ${worker.dest}\n📞 Phone: ${worker.phone || 'None'}\n📝 Notes: ${worker.notes || 'None'}`;
-    
-    const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
-    alertPromises.push(
-      fetch(telegramUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: messageText
-        })
-      })
-      .then(res => res.ok ? console.log("Telegram push text alert sent successfully!") : console.error("Telegram alert failed"))
-      .catch(err => console.error("Telegram error:", err))
-    );
-  }
-
-  // Run both email and text transmissions in parallel
-  await Promise.all(alertPromises);
 }
-
 
 /* 60-SECOND BACKGROUND CHECK */
 setInterval(function() {
@@ -425,7 +385,7 @@ setInterval(function() {
       // 1. Mark as alerted in Firestore immediately so other tabs don't fire duplicates
       entriesRef.doc(item.id).update({ alerted: true });
       
-      // 2. Dispatch Brevo Alerts (both Email & SMS)
+      // 2. Dispatch Brevo Alerts (both Email & SMS via Cloud Function)
       sendBrevoAlert(e);
       
       // 3. Screen alert
