@@ -558,7 +558,7 @@
     async function setSupervisor() {
       const code = document.getElementById("supervisorCode").value.trim();
       const hash = await sha256(code);
-      const targetHash = "bf426c19f56477169bb8fc11c1d431c948b816a12b0bbd23d8c199850119e6eb";
+      const targetHash = "79eee12e50817b388ba5ff1fd9ccd4e80c861e9d16d45d32b931b94f5a8a859c";
 
       if (hash === targetHash) {
         sessionStorage.setItem("isSupervisor", "true");
